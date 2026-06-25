@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,27 +8,30 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 
 type Role = 'seeker' | 'mentor';
-type Screen = 'feed' | 'profile' | 'goals' | 'chat' | 'ai';
+type Screen = 'profile' | 'feed' | 'goals' | 'chat' | 'ai';
 
 const AVATAR_SEEKER = 'https://cdn.poehali.dev/projects/ea32a82f-3b6c-41de-bc3b-41c8574efbf5/files/4179292c-7e7a-409e-ad70-698a29e743a0.jpg';
 const AVATAR_MENTOR = 'https://cdn.poehali.dev/projects/ea32a82f-3b6c-41de-bc3b-41c8574efbf5/files/57fe0b27-08a4-4487-bcc6-451ec43561be.jpg';
+
+type Post = {
+  id: number;
+  kind: 'post' | 'achievement' | 'goal';
+  time: string;
+  text: string;
+};
+
+const initialPosts: Post[] = [
+  { id: 1, kind: 'post', time: 'Сегодня, 10:24', text: 'Сегодня решилась написать первому наставнику. Страшно, но я двигаюсь вперёд. Кажется, это и есть мой второй шанс.' },
+  { id: 2, kind: 'achievement', time: 'Вчера, 19:00', text: 'Получила первый отклик работодателя' },
+  { id: 3, kind: 'goal', time: '2 дня назад', text: 'Новая цель: собрать первое портфолио' },
+  { id: 4, kind: 'post', time: '3 дня назад', text: 'Закончила курс по основам SMM. Голова кругом от новой информации, но я горжусь собой.' },
+];
 
 const FEED = [
   { id: 1, role: 'mentor' as Role, name: 'Андрей Соколов', avatar: AVATAR_MENTOR, time: '2 часа назад', tag: 'Я могу научить', text: 'Беру 2 человек в наставничество по продуктовому дизайну. Покажу процесс от идеи до релиза, дам реальные задачи из своего стартапа.', rating: 4.9 },
   { id: 2, role: 'seeker' as Role, name: 'Мария Лебедева', avatar: AVATAR_SEEKER, time: '4 часа назад', tag: 'Мне нужна помощь', text: 'Ищу человека, который поможет вернуться в профессию после декрета. Раньше работала в маркетинге, хочу разобраться, с чего начать сегодня.', rating: 4.7 },
   { id: 3, role: 'mentor' as Role, name: 'Игорь Власов', avatar: AVATAR_MENTOR, time: 'вчера', tag: 'Я могу включить в стартап', text: 'Запускаю проект в сфере EdTech. Нужны мотивированные ребята без опыта, но с горящими глазами. Научу всему по ходу дела.', rating: 5.0 },
 ];
-
-const PROFILE = {
-  role: 'seeker' as Role,
-  name: 'Мария Лебедева',
-  avatar: AVATAR_SEEKER,
-  bio: 'Возвращаюсь к себе после паузы. Ищу направление, поддержку и людей, которым по пути.',
-  rating: 4.7,
-  reviews: 12,
-  goals: ['Найти наставника в маркетинге', 'Собрать первое портфолио', 'Получить оффер на стажировку'],
-  achievements: ['Прошла курс по основам SMM', 'Сделала 3 учебных проекта', 'Получила первый отклик работодателя'],
-};
 
 const initialSteps = [
   { id: 1, text: 'Определить нишу и направление', done: true },
@@ -47,6 +50,14 @@ const MESSAGES = [
   { mine: false, text: 'Привет! Видел твой запрос про возвращение в маркетинг. Могу помочь.' },
   { mine: true, text: 'Здравствуйте! Это было бы здорово, спасибо что откликнулись 🙏' },
   { mine: false, text: 'Давай созвонимся завтра в 18:00, обсудим план?' },
+];
+
+const NAV: { s: Screen; icon: string; label: string }[] = [
+  { s: 'profile', icon: 'User', label: 'Моя страница' },
+  { s: 'feed', icon: 'Newspaper', label: 'Лента' },
+  { s: 'goals', icon: 'Target', label: 'Цели' },
+  { s: 'chat', icon: 'MessageCircle', label: 'Сообщения' },
+  { s: 'ai', icon: 'Sparkles', label: 'AI-помощник' },
 ];
 
 function RoleBadge({ role }: { role: Role }) {
@@ -70,9 +81,13 @@ export default function Index() {
   const [registered, setRegistered] = useState(false);
   const [role, setRole] = useState<Role | null>(null);
   const [name, setName] = useState('');
-  const [screen, setScreen] = useState<Screen>('feed');
+  const [screen, setScreen] = useState<Screen>('profile');
   const [steps, setSteps] = useState(initialSteps);
   const [aiInput, setAiInput] = useState('');
+
+  const [avatar, setAvatar] = useState<string>(AVATAR_SEEKER);
+  const [bio, setBio] = useState('Возвращаюсь к себе после паузы. Ищу направление, поддержку и людей, которым по пути.');
+  const [posts, setPosts] = useState<Post[]>(initialPosts);
 
   const toggleStep = (id: number) =>
     setSteps((s) => s.map((st) => (st.id === id ? { ...st, done: !st.done } : st)));
@@ -140,46 +155,92 @@ export default function Index() {
     );
   }
 
+  const displayName = name.trim() || 'Мария Лебедева';
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-20 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Icon name="Sparkles" size={20} className="text-primary" />
+    <div className="min-h-screen bg-background">
+      <div className="max-w-6xl mx-auto flex">
+        <aside className="hidden md:flex flex-col sticky top-0 h-screen w-64 shrink-0 border-r border-border px-4 py-6">
+          <div className="flex items-center gap-2 px-3 mb-8">
+            <Icon name="Sparkles" size={22} className="text-primary" />
             <span className="font-display text-2xl font-semibold">Второй шанс</span>
           </div>
-          <RoleBadge role={role!} />
+
+          <nav className="flex flex-col gap-1">
+            {NAV.map((item) => (
+              <button
+                key={item.s}
+                onClick={() => setScreen(item.s)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px] font-medium transition-colors ${
+                  screen === item.s
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-foreground/70 hover:bg-muted'
+                }`}
+              >
+                <Icon name={item.icon} size={19} />
+                {item.label}
+                {item.s === 'chat' && (
+                  <span className="ml-auto w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+                    2
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
+
+          <div className="mt-auto flex items-center gap-3 px-3 pt-4 border-t border-border">
+            <Avatar className="w-10 h-10">
+              <AvatarImage src={avatar} className="object-cover" />
+              <AvatarFallback>{displayName[0]}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate">{displayName}</p>
+              <p className="text-xs text-muted-foreground">{role === 'mentor' ? 'Наставник' : 'Ищущий'}</p>
+            </div>
+          </div>
+        </aside>
+
+        <div className="flex-1 min-w-0">
+          <header className="md:hidden sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border px-4 h-14 flex items-center gap-2">
+            <Icon name="Sparkles" size={20} className="text-primary" />
+            <span className="font-display text-xl font-semibold">Второй шанс</span>
+          </header>
+
+          <main className="px-4 sm:px-8 py-8 pb-28 md:pb-8">
+            {screen === 'profile' && (
+              <Profile
+                role={role!}
+                name={displayName}
+                avatar={avatar}
+                setAvatar={setAvatar}
+                bio={bio}
+                setBio={setBio}
+                posts={posts}
+                setPosts={setPosts}
+              />
+            )}
+            {screen === 'feed' && <Feed />}
+            {screen === 'goals' && (
+              <Goals steps={steps} toggleStep={toggleStep} progress={progress} doneCount={doneCount} />
+            )}
+            {screen === 'chat' && <Chat />}
+            {screen === 'ai' && <AI role={role!} aiInput={aiInput} setAiInput={setAiInput} />}
+          </main>
         </div>
-      </header>
+      </div>
 
-      <main className="flex-1 max-w-3xl w-full mx-auto px-6 py-8 pb-28">
-        {screen === 'feed' && <Feed />}
-        {screen === 'profile' && <Profile />}
-        {screen === 'goals' && (
-          <Goals steps={steps} toggleStep={toggleStep} progress={progress} doneCount={doneCount} />
-        )}
-        {screen === 'chat' && <Chat />}
-        {screen === 'ai' && <AI role={role!} aiInput={aiInput} setAiInput={setAiInput} />}
-      </main>
-
-      <nav className="fixed bottom-0 left-0 right-0 z-20 bg-background/90 backdrop-blur-md border-t border-border">
-        <div className="max-w-3xl mx-auto px-6 py-2 grid grid-cols-5">
-          {([
-            { s: 'feed' as Screen, icon: 'Newspaper', label: 'Лента' },
-            { s: 'goals' as Screen, icon: 'Target', label: 'Цели' },
-            { s: 'ai' as Screen, icon: 'Sparkles', label: 'AI' },
-            { s: 'chat' as Screen, icon: 'MessageCircle', label: 'Чат' },
-            { s: 'profile' as Screen, icon: 'User', label: 'Профиль' },
-          ]).map((item) => (
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-20 bg-background/90 backdrop-blur-md border-t border-border">
+        <div className="px-2 py-2 grid grid-cols-5">
+          {NAV.map((item) => (
             <button
               key={item.s}
               onClick={() => setScreen(item.s)}
               className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 transition-colors ${
-                screen === item.s ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                screen === item.s ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
               <Icon name={item.icon} size={20} />
-              <span className="text-[11px] font-medium">{item.label}</span>
+              <span className="text-[10px] font-medium">{item.label.split(' ')[0]}</span>
             </button>
           ))}
         </div>
@@ -188,9 +249,190 @@ export default function Index() {
   );
 }
 
+function Profile({
+  role,
+  name,
+  avatar,
+  setAvatar,
+  bio,
+  setBio,
+  posts,
+  setPosts,
+}: {
+  role: Role;
+  name: string;
+  avatar: string;
+  setAvatar: (v: string) => void;
+  bio: string;
+  setBio: (v: string) => void;
+  posts: Post[];
+  setPosts: (v: Post[]) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [editBio, setEditBio] = useState(false);
+  const [draft, setDraft] = useState(bio);
+  const [newPost, setNewPost] = useState('');
+
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setAvatar(URL.createObjectURL(file));
+  };
+
+  const publish = () => {
+    if (!newPost.trim()) return;
+    setPosts([{ id: Date.now(), kind: 'post', time: 'Только что', text: newPost.trim() }, ...posts]);
+    setNewPost('');
+  };
+
+  return (
+    <div className="animate-fade-in grid lg:grid-cols-[260px_1fr] gap-6 items-start">
+      <div className="space-y-4 lg:sticky lg:top-6">
+        <div className="bg-card rounded-2xl border border-border p-5">
+          <div className="relative w-fit mx-auto group">
+            <Avatar className="w-40 h-40 rounded-2xl">
+              <AvatarImage src={avatar} className="object-cover" />
+              <AvatarFallback className="rounded-2xl text-3xl">{name[0]}</AvatarFallback>
+            </Avatar>
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="absolute inset-0 rounded-2xl bg-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-primary-foreground"
+            >
+              <Icon name="Camera" size={26} />
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
+          </div>
+
+          <h2 className="text-2xl font-display font-semibold text-center mt-4">{name}</h2>
+          <div className="flex items-center justify-center gap-2 mt-1.5">
+            <RoleBadge role={role} />
+            <Stars value={4.7} />
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full rounded-xl mt-4"
+            onClick={() => fileRef.current?.click()}
+          >
+            <Icon name="Camera" size={15} className="mr-1.5" /> Сменить фото
+          </Button>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-muted-foreground">О себе</p>
+            <button onClick={() => { setDraft(bio); setEditBio(!editBio); }} className="text-primary">
+              <Icon name={editBio ? 'X' : 'Pencil'} size={15} />
+            </button>
+          </div>
+          {editBio ? (
+            <div>
+              <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} className="rounded-xl text-sm min-h-24 mb-2" />
+              <Button size="sm" className="w-full rounded-xl" onClick={() => { setBio(draft); setEditBio(false); }}>
+                Сохранить
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-foreground/80 leading-relaxed">{bio}</p>
+          )}
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border p-5">
+          <p className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-1.5">
+            <Icon name="Award" size={15} className="text-mentor" /> Достижения
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {['Курс по SMM', '3 проекта', 'Первый отклик'].map((a) => (
+              <span key={a} className="inline-flex items-center gap-1 bg-accent text-accent-foreground rounded-full px-2.5 py-1 text-xs">
+                <Icon name="Check" size={12} /> {a}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border p-5">
+          <p className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-1.5">
+            <Icon name="Target" size={15} className="text-seeker" /> Цели
+          </p>
+          <ul className="space-y-2 text-sm">
+            {['Найти наставника', 'Собрать портфолио', 'Получить оффер'].map((g) => (
+              <li key={g} className="flex items-center gap-2 text-foreground/80">
+                <span className="w-1.5 h-1.5 rounded-full bg-seeker shrink-0" /> {g}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="bg-card rounded-2xl border border-border p-5">
+          <p className="font-medium mb-3 flex items-center gap-2">
+            <Icon name="PenLine" size={17} className="text-primary" /> Мой блог
+          </p>
+          <Textarea
+            value={newPost}
+            onChange={(e) => setNewPost(e.target.value)}
+            placeholder="Расскажите о себе, своём пути или новом достижении..."
+            className="rounded-xl min-h-20 resize-none mb-3"
+          />
+          <div className="flex justify-end">
+            <Button onClick={publish} disabled={!newPost.trim()} className="rounded-xl">
+              <Icon name="Send" size={15} className="mr-1.5" /> Опубликовать
+            </Button>
+          </div>
+        </div>
+
+        {posts.map((p) => (
+          <article key={p.id} className="bg-card rounded-2xl border border-border p-5 hover-lift">
+            <div className="flex items-center gap-3 mb-3">
+              <Avatar className="w-10 h-10">
+                <AvatarImage src={avatar} className="object-cover" />
+                <AvatarFallback>{name[0]}</AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="text-sm font-medium">{name}</p>
+                <p className="text-xs text-muted-foreground">{p.time}</p>
+              </div>
+            </div>
+
+            {p.kind === 'achievement' && (
+              <div className="flex items-start gap-3 bg-mentor/10 rounded-xl p-3 mb-1">
+                <Icon name="Award" size={20} className="text-mentor mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-mentor mb-0.5">Новое достижение</p>
+                  <p className="text-foreground/90">{p.text}</p>
+                </div>
+              </div>
+            )}
+            {p.kind === 'goal' && (
+              <div className="flex items-start gap-3 bg-seeker/10 rounded-xl p-3 mb-1">
+                <Icon name="Target" size={20} className="text-seeker mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-seeker mb-0.5">Новая цель</p>
+                  <p className="text-foreground/90">{p.text}</p>
+                </div>
+              </div>
+            )}
+            {p.kind === 'post' && <p className="text-foreground/90 leading-relaxed">{p.text}</p>}
+
+            <div className="flex gap-4 mt-3 pt-3 border-t border-border text-muted-foreground text-sm">
+              <button className="flex items-center gap-1.5 hover:text-primary transition-colors">
+                <Icon name="Heart" size={16} /> 12
+              </button>
+              <button className="flex items-center gap-1.5 hover:text-primary transition-colors">
+                <Icon name="MessageCircle" size={16} /> 3
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Feed() {
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in max-w-2xl">
       <h2 className="text-3xl font-display font-semibold mb-1">Лента</h2>
       <p className="text-muted-foreground mb-6">Те, кто ищет, и те, кто готов помочь</p>
       <div className="space-y-4">
@@ -233,87 +475,6 @@ function Feed() {
   );
 }
 
-function Profile() {
-  return (
-    <div className="animate-fade-in">
-      <div className="bg-card rounded-3xl border border-border p-8 text-center mb-6">
-        <Avatar className="w-24 h-24 mx-auto mb-4">
-          <AvatarImage src={PROFILE.avatar} className="object-cover" />
-          <AvatarFallback>{PROFILE.name[0]}</AvatarFallback>
-        </Avatar>
-        <h2 className="text-3xl font-display font-semibold">{PROFILE.name}</h2>
-        <div className="flex items-center justify-center gap-3 mt-2 mb-3">
-          <RoleBadge role={PROFILE.role} />
-          <span className="inline-flex items-center gap-1 text-sm text-foreground/70">
-            <Icon name="Star" size={15} className="text-primary fill-primary" />
-            {PROFILE.rating} · {PROFILE.reviews} отзывов
-          </span>
-        </div>
-        <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">{PROFILE.bio}</p>
-        <Button variant="outline" className="rounded-full mt-5">
-          <Icon name="Pencil" size={15} className="mr-1" /> Редактировать
-        </Button>
-      </div>
-
-      <div className="grid gap-6">
-        <section className="bg-card rounded-2xl border border-border p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-display font-semibold flex items-center gap-2">
-              <Icon name="Target" size={18} className="text-seeker" /> Мои цели
-            </h3>
-            <button className="text-sm text-primary font-medium">Добавить</button>
-          </div>
-          <ul className="space-y-2">
-            {PROFILE.goals.map((g, i) => (
-              <li key={i} className="flex items-center gap-3 text-foreground/90">
-                <span className="w-1.5 h-1.5 rounded-full bg-seeker" /> {g}
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="bg-card rounded-2xl border border-border p-6">
-          <h3 className="text-xl font-display font-semibold flex items-center gap-2 mb-4">
-            <Icon name="Award" size={18} className="text-mentor" /> Достижения
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {PROFILE.achievements.map((a, i) => (
-              <span
-                key={i}
-                className="inline-flex items-center gap-1.5 bg-accent text-accent-foreground rounded-full px-3 py-1.5 text-sm"
-              >
-                <Icon name="Check" size={14} /> {a}
-              </span>
-            ))}
-          </div>
-        </section>
-
-        <section className="bg-card rounded-2xl border border-border p-6">
-          <h3 className="text-xl font-display font-semibold flex items-center gap-2 mb-4">
-            <Icon name="MessageSquareQuote" size={18} className="text-primary" /> Отзывы
-          </h3>
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-medium text-sm">Андрей Соколов</span>
-                <Stars value={5.0} />
-              </div>
-              <p className="text-sm text-muted-foreground">Очень мотивированная, схватывает на лету. Рекомендую.</p>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-medium text-sm">Игорь Власов</span>
-                <Stars value={4.5} />
-              </div>
-              <p className="text-sm text-muted-foreground">Ответственный подход, всегда на связи.</p>
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
-  );
-}
-
 function Goals({
   steps,
   toggleStep,
@@ -326,7 +487,7 @@ function Goals({
   doneCount: number;
 }) {
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in max-w-2xl">
       <h2 className="text-3xl font-display font-semibold mb-1">Мои цели</h2>
       <p className="text-muted-foreground mb-6">Каждый выполненный шаг — это достижение</p>
 
@@ -336,10 +497,7 @@ function Goals({
           <span className="text-sm font-medium text-primary">{progress}%</span>
         </div>
         <div className="h-2 rounded-full bg-muted overflow-hidden mb-6">
-          <div
-            className="h-full bg-primary transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
+          <div className="h-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }} />
         </div>
 
         <ul className="space-y-1">
@@ -373,7 +531,7 @@ function Goals({
 
 function Chat() {
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in max-w-2xl">
       <h2 className="text-3xl font-display font-semibold mb-6">Сообщения</h2>
 
       <div className="space-y-2 mb-8">
@@ -447,7 +605,7 @@ function AI({
   const prompts = role === 'seeker' ? seekerPrompts : mentorPrompts;
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in max-w-2xl">
       <div className="text-center mb-8">
         <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-4">
           <Icon name="Sparkles" size={26} className="text-primary" />
